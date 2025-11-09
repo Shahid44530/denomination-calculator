@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Denomination Breakdown</title>
+    <!-- Load Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Use the Inter font */
+        body {
+            font-family: "Inter", sans-serif;
+        }
+        
+        /* Custom styles for better checkbox appearance */
+        .note-checkbox:checked + label {
+            border-color: #3b82f6; /* blue-500 */
+            background-color: #eff6ff; /* blue-50 */
+        }
+        .note-checkbox:checked + label span {
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 md:p-8">
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-8">नोट्स (Notes) की संख्या पता करें</h1>
+
+        <!-- 1. Amount Needed Section -->
+        <div class="mb-6">
+            <label for="amountNeeded" class="block text-sm font-medium text-gray-700 mb-2">आपको कितनी राशि (Amount) चाहिए?</label>
+            <input type="number" id="amountNeeded" placeholder="उदा. 470" class="w-full px-4 py-3 text-2xl font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        </div>
+
+        <!-- 2. Select Available Notes Section -->
+        <div class="mb-8">
+            <label class="block text-sm font-medium text-gray-700 mb-3">आप कौन से नोट्स का इस्तेमाल करना चाहते हैं?</label>
+            <div class="grid grid-cols-3 gap-2">
+                <!-- Denomination notes array -->
+                <script>
+                    // Only standard Indian currency denominations (notes and coins)
+                    const denominations = [500, 200, 100, 50, 20, 10, 5, 2, 1];
+                </script>
+                
+                <!-- This will be populated by JavaScript -->
+                <div id="notesContainer" class="col-span-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2"></div>
+            </div>
+        </div>
+
+        <!-- 3. Calculate Button -->
+        <div class="mb-6">
+            <button id="calculateDenominationsBtn" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">
+                नोट्स की गणना करें (Calculate)
+            </button>
+        </div>
+
+        <!-- 4. Results Section -->
+        <div id="results" class="border-t pt-6">
+            <div id="message" class="text-center text-red-600 font-medium mb-3"></div>
+            <div class="text-center mb-4">
+                <span class="text-gray-600 text-sm">पूरी राशि (Amount)</span>
+                <h3 id="amountTotalDisplay" class="text-3xl font-bold text-blue-600">₹0</h3>
+            </div>
+            <div id="breakdownDisplay" class="space-y-2">
+                <!-- Breakdown will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM References ---
+        const amountNeededInput = document.getElementById('amountNeeded');
+        const calculateDenominationsBtn = document.getElementById('calculateDenominationsBtn');
+        const amountTotalDisplay = document.getElementById('amountTotalDisplay');
+        const breakdownDisplay = document.getElementById('breakdownDisplay');
+        const message = document.getElementById('message');
+        const notesContainer = document.getElementById('notesContainer');
+
+        // (denominations array is defined in the HTML above)
+        
+        // --- Populate Note Checkboxes ---
+        denominations.forEach(note => {
+            const div = document.createElement('div');
+            const type = note >= 10 ? 'Note' : 'Coin';
+            div.innerHTML = `
+                <input type="checkbox" id="note-${note}" value="${note}" class="note-checkbox hidden">
+                <label for="note-${note}" class="cursor-pointer w-full text-center block border-2 border-gray-200 rounded-lg p-3 transition duration-150 shadow-sm">
+                    <span class="text-gray-700 text-sm md:text-base">₹${note}</span>
+                </label>
+            `;
+            notesContainer.appendChild(div);
+        });
+
+        // --- Function to Calculate Denominations ---
+        function calculateDenominations() {
+            clearResults();
+
+            // 1. Get Inputs
+            const amountNeeded = parseInt(amountNeededInput.value);
+
+            // 2. Validation
+            if (isNaN(amountNeeded) || amountNeeded <= 0) {
+                message.textContent = "कृपया सही राशि (valid amount) दर्ज करें।";
+                return;
+            }
+
+            // 3. Get Available Notes (Selected by User)
+            const availableNotes = [];
+            document.querySelectorAll('.note-checkbox:checked').forEach(checkbox => {
+                availableNotes.push(parseInt(checkbox.value));
+            });
+            
+            // Sort High-to-Low: This is the standard greedy algorithm that ensures
+            // the minimum number of notes are used, and provides a 'mix' when necessary.
+            availableNotes.sort((a, b) => b - a);
+
+            if (availableNotes.length === 0) {
+                message.textContent = "कृपया कम से कम एक नोट चुनें।";
+                return;
+            }
+
+            // 4. Calculate Breakdown
+            amountTotalDisplay.textContent = `₹${amountNeeded}`;
+            
+            const breakdown = {};
+            let remainingAmount = amountNeeded;
+
+            // 5. Greedy Algorithm (High-to-Low)
+            for (const note of availableNotes) {
+                const count = Math.floor(remainingAmount / note);
+                if (count > 0) {
+                    breakdown[note] = count;
+                    remainingAmount = remainingAmount % note; // Get the remainder
+                }
+            }
+
+            // 6. Display Results
+            breakdownDisplay.innerHTML = ''; // Clear previous breakdown
+            
+            let hasBreakdown = false;
+            // Iterate over the master list to keep the order high-to-low in display
+            denominations.forEach(note => {
+                if (breakdown[note]) {
+                    hasBreakdown = true;
+                    const item = document.createElement('div');
+                    item.className = 'flex justify-between items-center bg-green-50 p-3 rounded-lg border-l-4 border-green-400';
+                    item.innerHTML = `
+                        <span class="font-medium text-gray-700">₹${note} ${note >= 10 ? 'Note:' : 'Coin:'}</span>
+                        <span class="font-bold text-xl text-green-700">${breakdown[note]}</span>
+                    `;
+                    breakdownDisplay.appendChild(item);
+                }
+            });
+
+            // 7. Handle Remainder (if amount can't be made)
+            if (remainingAmount > 0) {
+                const errorItem = document.createElement('div');
+                errorItem.className = 'text-center text-red-600 font-semibold p-3 bg-red-100 rounded-lg mt-4 border-2 border-red-400';
+                errorItem.textContent = `आपकी चुनी हुई नोट्स से पूरी राशि नहीं बन सकती। बाकी बचे: ₹${remainingAmount.toFixed(2)}`;
+                breakdownDisplay.appendChild(errorItem);
+            } else if (!hasBreakdown && amountNeeded > 0) {
+                // This happens if amount is 5 but only 10, 20, etc. are available
+                const errorItem = document.createElement('div');
+                errorItem.className = 'text-center text-red-600 font-semibold p-3 bg-red-100 rounded-lg mt-4 border-2 border-red-400';
+                errorItem.textContent = `चुने हुए नोट्स से ₹${amountNeeded} नहीं बन सकते।`;
+                breakdownDisplay.appendChild(errorItem);
+            }
+        }
+        
+        // --- Helper function to clear results ---
+        function clearResults() {
+            message.textContent = '';
+            amountTotalDisplay.textContent = '₹0';
+            breakdownDisplay.innerHTML = '';
+        }
+
+        // --- Event Listeners ---
+        calculateDenominationsBtn.addEventListener('click', calculateDenominations);
+        
+    </script>
+</body>
+</html>
